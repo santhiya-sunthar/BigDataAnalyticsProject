@@ -1,0 +1,145 @@
+---
+title: "Market Basket Analysis, Classification, and Clustering of Clickstream Dataset"
+author: "Santhiya Suntharesan"
+date: "03/09/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+#Install and load required packages
+```{r}
+#Install required packages
+#https://cran.r-project.org/web/packages/shiny/index.html
+#install.packages("shiny", dependencies = TRUE)
+#https://cran.r-project.org/web/packages/shinythemes/index.html
+#install.packages("shinythemes", dependencies = TRUE)
+#https://cran.r-project.org/web/packages/arules/index.html
+#install.packages("arules", dependencies = TRUE)
+#https://cran.r-project.org/web/packages/arulesViz/index.html
+#install.packages("arulesViz", dependencies = TRUE)
+#https://cran.r-project.org/web/packages/gtools/index.html
+#install.packages("gtools", dependencies = TRUE)
+#https://cran.r-project.org/web/packages/gtools/index.html
+#install.packages("klaR", dependencies = TRUE)
+```
+
+```{r}
+lstPackages <- c('shiny', 'shinythemes', 'arules', 'arulesViz', 'gtools', 'klaR')
+lapply(lstPackages, library, character.only = TRUE)
+```
+
+
+## Read The Sample Data
+```{r}
+data <- read.csv(file = 'e-shop clothing 2008.csv', header = T, stringsAsFactors=T, sep = ";")
+summary(data)
+str(data)
+```
+## Get Column Names
+```{r}
+colnames(data)
+```
+## Rename Column Names
+```{r}
+names(data)[names(data) == "session.ID"] <- "sessionID"
+names(data)[names(data) == "page.1..main.category."] <- "page1"
+names(data)[names(data) == "page.2..clothing.model."] <- "page2"
+names(data)[names(data) == "model.photography"] <- "modelphotography"
+names(data)[names(data) == "price.2"] <- "price2"
+head(data)
+```
+## Get Column Names
+```{r}
+colnames(data)
+```
+
+#Create Transactions
+```{r}
+sessions <- as(split(data[,"page2"], data[,"sessionID"]), "transactions")
+sessions
+
+```
+
+
+```{r}
+cRules <- arules::apriori(sessions,
+                        parameter = 
+                            list(support = 0.004, confidence = 0.5, minlen = 5)
+                        )
+arulesViz::ruleExplorer(cRules)
+cRules
+```
+```{r}
+ clothingRules  <- apriori(sessions, parameter = list(support = 0.009, confidence = 0.25, minlen = 2))
+clothingRules
+arulesViz::ruleExplorer(clothingRules)
+```
+
+```{r}
+inspect(head(cRules, n = 3, by = "lift"))
+```
+
+## Classificiation: Decision Tree
+```{r}
+library("rpart")
+library('rpart.plot')
+
+# set seed to make the partition reproducible
+set.seed(17)
+trainIndex <- sample(seq_len(nrow(data)), size = floor(0.7 * nrow(data)))
+trainSet <- data[trainIndex, ]
+testSet <- data[-trainIndex, ]
+
+# Buidling the Predictive Models
+fitModel1 <- rpart::rpart(
+  price2 ~ year + month + day + order + country + sessionID + page1 + page2 + colour + location + modelphotography + price + page,
+  data = trainSet, 
+  method = "class",
+  maxdepth = 10,
+  parms = list(split = 'information')
+)
+
+fitModel2 <- rpart(
+  price2 ~ order + country + sessionID + page1 + page2 + colour + location + modelphotography + price + page,
+  data = trainSet, 
+  method = "class",
+  maxdepth = 10,
+  parms = list(split = 'information')
+)
+
+#Plotting the trees
+par(mfrow=c(1,2))
+rpart.plot::rpart.plot(fitModel1, type = 4, extra = 1)
+rpart.plot::rpart.plot(fitModel2, type = 4, extra = 1)
+
+```
+
+
+
+##Clustering
+
+```{r}
+#library(klaR)
+#library(cluster)
+```
+
+```{r}
+lstPackages <- c('klaR', 'cluster')
+lapply(lstPackages, library, character.only = TRUE)
+
+clustModel <- klaR::kmodes(data, modes = 4)
+cluster::clusplot(data, clustModel$cluster, color=TRUE,  shade=TRUE)
+
+cluster.output <- cbind(data, clustModel$cluster)
+table(cluster.output$`clustModel$cluster`)
+#table(data,clustModel$cluster)
+```
