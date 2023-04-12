@@ -1,7 +1,7 @@
 ---
 title: "Market Basket Analysis, Classification, and Clustering of Clickstream Dataset"
 author: "Santhiya Suntharesan"
-date: "03/09/2023"
+date: "2023-03-09"
 output: html_document
 ---
 
@@ -15,7 +15,7 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-#Install and load required packages
+**Install and load required packages**
 ```{r}
 #Install required packages
 #https://cran.r-project.org/web/packages/shiny/index.html
@@ -30,6 +30,10 @@ When you click the **Knit** button a document will be generated that includes bo
 #install.packages("gtools", dependencies = TRUE)
 #https://cran.r-project.org/web/packages/gtools/index.html
 #install.packages("klaR", dependencies = TRUE)
+#install.packages("tidyverse", dependencies = TRUE)
+#install.packages("caret", dependencies = TRUE)
+#install.packages("fim4r", dependencies = TRUE)
+#install.packages("rCBA", dependencies = TRUE)
 ```
 
 ```{r}
@@ -44,12 +48,14 @@ data <- read.csv(file = 'e-shop clothing 2008.csv', header = T, stringsAsFactors
 summary(data)
 str(data)
 ```
-## Get Column Names
+
 ```{r}
+#Get Column Names
 colnames(data)
 ```
-## Rename Column Names
+
 ```{r}
+#Rename Column Names
 names(data)[names(data) == "session.ID"] <- "sessionID"
 names(data)[names(data) == "page.1..main.category."] <- "page1"
 names(data)[names(data) == "page.2..clothing.model."] <- "page2"
@@ -57,60 +63,241 @@ names(data)[names(data) == "model.photography"] <- "modelphotography"
 names(data)[names(data) == "price.2"] <- "price2"
 head(data)
 ```
-## Get Column Names
+
 ```{r}
+#Set price2 as factor
+data$price2 <- as.factor(c(1, 2))
+```
+
+```{r}
+#data$price2
+head(data$price2)
+```
+
+
+```{r}
+#Get Column Names
 colnames(data)
 ```
-
-#Create Transactions
+# Market Basket Analysis
+## Apriori Algorithm
 ```{r}
+#Create Transactions
 sessions <- as(split(data[,"page2"], data[,"sessionID"]), "transactions")
 sessions
-
 ```
 
-
 ```{r}
-cRules <- arules::apriori(sessions,
+#rules_apriori
+rules_apriori <- arules::apriori(sessions,
                         parameter = 
-                            list(support = 0.004, confidence = 0.5, minlen = 5)
+                            list(support = 0.005, confidence = 0.05, minlen = 2)
                         )
-arulesViz::ruleExplorer(cRules)
-cRules
-```
-```{r}
- clothingRules  <- apriori(sessions, parameter = list(support = 0.009, confidence = 0.25, minlen = 2))
-clothingRules
-arulesViz::ruleExplorer(clothingRules)
+#Visualize rules_apriori
+arulesViz::ruleExplorer(rules_apriori)
 ```
 
 ```{r}
-inspect(head(cRules, n = 3, by = "lift"))
+#Scatterplot
+
+# Subset the top 100 rules
+rules_apriori_top100 <- head(sort(rules_apriori, by = "lift"), n = 100)
+
+# Create a scatterplot of the top 100 rules
+plot(rules_apriori_top100, method = "scatterplot")
 ```
 
-## Classificiation: Decision Tree
+```{r}
+inspect(head(rules_apriori, n = 5, by = "support"))
+```
+
+```{r}
+inspect(head(rules_apriori, n = 5, by = "confidence"))
+```
+
+```{r}
+inspect(head(rules_apriori, n = 5, by = "coverage"))
+```
+
+```{r}
+inspect(head(rules_apriori, n = 5, by = "lift"))
+```
+
+```{r}
+inspect(head(rules_apriori, n = 5, by = "count"))
+```
+
+## Eclat Algorithm
+```{r}
+#Read data
+data_eclat <- read.transactions(file = 'e-shop clothing 2008.csv', format = "single",  cols = c(6, 8), header = TRUE, sep = ";")
+```
+
+```{r}
+#Check class
+class(data_eclat)
+```
+
+```{r}
+#Convert data_eclat from itemset to transactions
+eclat_transactions <- as(data_eclat, "transactions")
+```
+
+```{r}
+#Check class
+class(eclat_transactions)
+```
+
+```{r}
+#rules_eclat
+pre_rules_eclat <- arules::eclat(eclat_transactions,
+                        parameter = 
+                            list(support = 0.005, minlen = 2))
+
+# Convert the itemsets to rules using ruleInduction
+rules_eclat <- ruleInduction(pre_rules_eclat, eclat_transactions, confidence = 0.05)
+
+
+#Visualize rules_eclat
+arulesViz::ruleExplorer(rules_eclat)
+```
+
+```{r}
+#Scatterplot
+
+# Subset the top 100 rules
+rules_eclat_top100 <- head(sort(rules_eclat, by = "lift"), n = 100)
+
+# Create a scatterplot of the top 100 rules
+plot(rules_eclat_top100, method = "scatterplot")
+```
+
+```{r}
+inspect(head(rules_eclat, n = 5, by = "support"))
+```
+
+```{r}
+inspect(head(rules_eclat, n = 5, by = "confidence"))
+```
+
+```{r}
+inspect(head(rules_eclat, n = 5, by = "lift"))
+```
+
+```{r}
+inspect(head(rules_eclat, n = 5, by = "itemset"))
+```
+
+
+
+## Weclat Algorithm
+```{r}
+#Read data
+data_weclat <- read.transactions(file = 'e-shop clothing 2008.csv', format = "single",  cols = c(6, 8), header = TRUE, sep = ";")
+```
+
+```{r}
+#Check class
+class(data_weclat)
+```
+
+```{r}
+#Convert data_weclat from itemset to transactions
+weclat_transactions <- as(data_weclat, "transactions")
+```
+
+```{r}
+#Check class
+class(weclat_transactions)
+```
+
+```{r}
+#rules_weclat
+pre_rules_weclat <- arules::weclat(weclat_transactions,
+                        parameter = 
+                            list(support = 0.005, minlen = 2))
+
+# Convert the itemsets to rules using ruleInduction
+rules_weclat <- ruleInduction(pre_rules_weclat, weclat_transactions, confidence = 0.05)
+
+
+#Visualize rules_eclat
+arulesViz::ruleExplorer(rules_weclat)
+```
+
+```{r}
+#Scatterplot
+
+# Subset the top 100 rules
+rules_weclat_top100 <- head(sort(rules_weclat, by = "lift"), n = 100)
+
+# Create a scatterplot of the top 100 rules
+plot(rules_weclat_top100, method = "scatterplot")
+```
+
+```{r}
+inspect(head(rules_weclat, n = 5, by = "support"))
+```
+
+```{r}
+inspect(head(rules_weclat, n = 5, by = "confidence"))
+```
+
+```{r}
+inspect(head(rules_weclat, n = 5, by = "lift"))
+```
+
+```{r}
+inspect(head(rules_weclat, n = 5, by = "itemset"))
+```
+
+
+# Classification
+**Cross-Validation**
+```{r}
+#specify number of folds
+nrFolds <- 10
+
+# generate array containing fold-number for each sample (row)
+folds <- rep_len(1:nrFolds, nrow(data))
+
+#shuffle
+folds <- sample(folds, nrow(data))
+
+# actual cross validation
+for(k in 1:nrFolds) {
+    # actual split of the data
+    fold <- which(folds == k)
+    data.train <- data[-fold,]
+    data.test <- data[fold,]
+    # train and test model with data.train and data.test
+}
+```
+
+**Decision Trees**
 ```{r}
 library("rpart")
 library('rpart.plot')
 
-# set seed to make the partition reproducible
-set.seed(17)
-trainIndex <- sample(seq_len(nrow(data)), size = floor(0.7 * nrow(data)))
-trainSet <- data[trainIndex, ]
-testSet <- data[-trainIndex, ]
+#Set seed to make the partition reproducible
+set.seed(100)
+trainSet <- data.train
+testSet <- data.test
 
-# Buidling the Predictive Models
-fitModel1 <- rpart::rpart(
+#Building the Predictive Models
+#Model 1: Using all features
+Model1 <- rpart::rpart(
   price2 ~ year + month + day + order + country + sessionID + page1 + page2 + colour + location + modelphotography + price + page,
-  data = trainSet, 
+  data = data.train, 
   method = "class",
   maxdepth = 10,
   parms = list(split = 'information')
 )
 
-fitModel2 <- rpart(
-  price2 ~ order + country + sessionID + page1 + page2 + colour + location + modelphotography + price + page,
-  data = trainSet, 
+#Model 2: Using selected features from HPSPLIT in SAS
+Model2 <- rpart(
+  price2 ~ page2 + colour + location + modelphotography + page,
+  data = data.train, 
   method = "class",
   maxdepth = 10,
   parms = list(split = 'information')
@@ -118,14 +305,28 @@ fitModel2 <- rpart(
 
 #Plotting the trees
 par(mfrow=c(1,2))
-rpart.plot::rpart.plot(fitModel1, type = 4, extra = 1)
-rpart.plot::rpart.plot(fitModel2, type = 4, extra = 1)
+rpart.plot::rpart.plot(Model1, type = 4, extra = 1)
+rpart.plot::rpart.plot(Model2, type = 4, extra = 1)
+```
 
+
+```{r}
+Prediction_Model_1 <- predict(Model1,type="class")
+Prediction_Model_2 <- predict(Model2,type="class")
+```
+
+**Confusion Matrix for Model 1**
+```{r}
+caret::confusionMatrix(Prediction_Model_1, data.train$price2)
+```
+**Confusion Matrix for Model 2**
+```{r}
+caret::confusionMatrix(Prediction_Model_2, data.train$price2)
 ```
 
 
 
-##Clustering
+# Clustering
 
 ```{r}
 #library(klaR)
@@ -141,5 +342,7 @@ cluster::clusplot(data, clustModel$cluster, color=TRUE,  shade=TRUE)
 
 cluster.output <- cbind(data, clustModel$cluster)
 table(cluster.output$`clustModel$cluster`)
-#table(data,clustModel$cluster)
 ```
+
+
+
